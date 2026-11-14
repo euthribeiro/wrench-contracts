@@ -1,0 +1,8 @@
+bin/
+obj/
+*.user
+*.nupkg
+TestResults/
+coverage-report/
+.vs/
+.idea/

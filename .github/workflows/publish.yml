@@ -1,0 +1,54 @@
+name: Publicar Wrench.Contracts
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: 'Versão do pacote (ex.: 1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Definir versão
+        id: versao
+        run: |
+          if [ -n "${{ inputs.versao }}" ]; then
+            echo "numero=${{ inputs.versao }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "numero=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restaurar
+        run: dotnet restore
+
+      - name: Testes
+        run: dotnet test --configuration Release
+
+      - name: Empacotar
+        env:
+          VERSAO: ${{ steps.versao.outputs.numero }}
+        run: dotnet pack src/Wrench.Contracts/Wrench.Contracts.csproj --configuration Release -p:Version="$VERSAO" --output ./artefatos
+
+      - name: Publicar no GitHub Packages
+        env:
+          FEED: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dotnet nuget push "./artefatos/*.nupkg" --source "$FEED" --api-key "$TOKEN" --skip-duplicate
